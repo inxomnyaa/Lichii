@@ -136,6 +136,7 @@ public:
     static constexpr int FullPathRole = SortRole + 2;
     static constexpr int ProgramIdRole = SortRole + 3;
     static constexpr int FileTypeRole = SortRole + 4;
+    static constexpr int SquareIconRole = SortRole + 5; ///< icon without theme rounding (Tiles style)
 
     GameListItemPath() = default;
     GameListItemPath(const QString& game_path, const std::vector<u8>& picture_data,
@@ -171,12 +172,16 @@ public:
         const u32 size = UISettings::CurrentGameIconSize().GetValue();
 
         QPixmap picture;
-        if (!picture.loadFromData(picture_data.data(), static_cast<u32>(picture_data.size()))) {
+        const bool has_art =
+            picture.loadFromData(picture_data.data(), static_cast<u32>(picture_data.size()));
+        if (!has_art) {
             picture = GetDefaultIcon(size);
         }
         picture = picture.scaled(size, size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
 
         setData(RoundedIcon(picture), Qt::DecorationRole);
+        // No square icon for games without art: the Tiles style draws its own placeholder.
+        setData(has_art ? QVariant(picture) : QVariant(), SquareIconRole);
     }
 
     int type() const override {

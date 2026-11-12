@@ -168,6 +168,7 @@ ENUM(TemperatureUnits, Celsius, Fahrenheit)
 ENUM(ExtendedDynamicState, Disabled, EDS1, EDS2, EDS3);
 ENUM(GpuLogLevel, Off, Errors, Standard, Verbose, All)
 ENUM(GameListMode, TreeView, GridView, CarouselView);
+ENUM(GridStyle, Cards, Tiles);
 ENUM(SpeedMode, Standard, Turbo, Slow);
 ENUM(FrameGenType, Lsfg, Fsr3);
 

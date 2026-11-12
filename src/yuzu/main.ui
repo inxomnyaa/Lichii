@@ -112,6 +112,9 @@
      <addaction name="action_Tree_View"/>
      <addaction name="action_Grid_View"/>
      <addaction name="action_Carousel_View"/>
+     <addaction name="separator"/>
+     <addaction name="action_Grid_Style_Cards"/>
+     <addaction name="action_Grid_Style_Tiles"/>
     </widget>
     <widget class="QMenu" name="menuGame_Icon_Size">
      <property name="title">
@@ -627,6 +630,22 @@
   <action name="action_Post_Processing_Shaders">
    <property name="text">
     <string>Post-Processing &amp;Shaders...</string>
+   </property>
+  </action>
+  <action name="action_Grid_Style_Cards">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Grid Style: C&amp;ards</string>
+   </property>
+  </action>
+  <action name="action_Grid_Style_Tiles">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Grid Style: &amp;Tiles</string>
    </property>
   </action>
   <action name="action_Carousel_View">

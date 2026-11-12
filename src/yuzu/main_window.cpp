@@ -1625,6 +1625,10 @@ void MainWindow::ConnectMenuEvents() {
     connect_menu(ui->action_Grid_View, &MainWindow::SetGridView);
     connect_menu(ui->action_Tree_View, &MainWindow::SetTreeView);
     connect_menu(ui->action_Carousel_View, &MainWindow::SetCarouselView);
+    connect(ui->action_Grid_Style_Cards, &QAction::triggered, this,
+            [this] { SetGridStyle(Settings::GridStyle::Cards); });
+    connect(ui->action_Grid_Style_Tiles, &QAction::triggered, this,
+            [this] { SetGridStyle(Settings::GridStyle::Tiles); });
 
     game_size_actions = new QActionGroup(this);
     game_size_actions->setExclusive(true);
@@ -3768,6 +3772,12 @@ void MainWindow::SetGameListMode(Settings::GameListMode mode) {
 
     UISettings::values.game_list_mode = mode;
     ui->action_Show_Game_Name->setEnabled(mode != Settings::GameListMode::TreeView);
+    ui->action_Grid_Style_Cards->setEnabled(mode == Settings::GameListMode::GridView);
+    ui->action_Grid_Style_Tiles->setEnabled(mode == Settings::GameListMode::GridView);
+    ui->action_Grid_Style_Cards->setChecked(UISettings::values.grid_style.GetValue() ==
+                                            Settings::GridStyle::Cards);
+    ui->action_Grid_Style_Tiles->setChecked(UISettings::values.grid_style.GetValue() ==
+                                            Settings::GridStyle::Tiles);
 
     CheckIconSize();
     game_list->ResetViewMode();
@@ -3785,14 +3795,28 @@ void MainWindow::SetCarouselView() {
     SetGameListMode(Settings::GameListMode::CarouselView);
 }
 
+void MainWindow::SetGridStyle(Settings::GridStyle style) {
+    UISettings::values.grid_style = style;
+    ui->action_Grid_Style_Cards->setChecked(style == Settings::GridStyle::Cards);
+    ui->action_Grid_Style_Tiles->setChecked(style == Settings::GridStyle::Tiles);
+
+    CheckIconSize();
+    game_list->UpdateIconSizes();
+    game_list->ResetViewMode();
+}
+
 void MainWindow::CheckIconSize() {
     auto& setting = UISettings::CurrentGameIconSize();
 
     // When in grid/carousel view mode, with text off
     // there is no point in having icons turned off
+    const bool grid_tiles =
+        UISettings::values.game_list_mode.GetValue() == Settings::GameListMode::GridView &&
+        UISettings::values.grid_style.GetValue() == Settings::GridStyle::Tiles;
     const bool icons_required =
-        UISettings::values.game_list_mode.GetValue() != Settings::GameListMode::TreeView &&
-        !UISettings::values.show_game_name.GetValue();
+        (UISettings::values.game_list_mode.GetValue() != Settings::GameListMode::TreeView &&
+         !UISettings::values.show_game_name.GetValue()) ||
+        grid_tiles;
     if (icons_required && setting.GetValue() == 0) {
         setting.SetValue(setting.GetDefault());
     }

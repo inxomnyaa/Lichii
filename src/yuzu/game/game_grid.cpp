@@ -62,7 +62,11 @@ void GameGrid::UpdateIconSize() {
     // needed for the "no icon" case. Leftover row space becomes the gap between cards.
     int widthMargin = 24;
 
-    if (UISettings::values.show_game_name) {
+    if (UISettings::values.grid_style.GetValue() == Settings::GridStyle::Tiles) {
+        // Tiles: the name is drawn on the icon, so the cell is the icon plus a gap.
+        widthMargin = 10;
+        heightMargin = 10;
+    } else if (UISettings::values.show_game_name) {
         switch (icon_size) {
         case 128:
         case 160:
@@ -103,6 +107,7 @@ void GameGrid::UpdateIconSize() {
 
         setUpdatesEnabled(true);
     }
+    viewport()->update();
 }
 
 QModelIndex GameGrid::indexAt(const QPoint& point) const {
