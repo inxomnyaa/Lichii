@@ -3815,8 +3815,8 @@ void MainWindow::ToggleShowGameName() {
 
     CheckIconSize();
 
+    // Names only change how cards are drawn and sized; no need to rescan the game folders.
     game_list->UpdateIconSizes();
-    game_list->RefreshGameDirectory();
 }
 
 void MainWindow::OnConfigure() {
