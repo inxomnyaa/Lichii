@@ -158,6 +158,7 @@
     <addaction name="menu_Game_List_Mode"/>
     <addaction name="menuGame_Icon_Size"/>
     <addaction name="action_Show_Game_Name"/>
+    <addaction name="action_Show_Game_Info"/>
    </widget>
    <widget class="QMenu" name="menu_Multiplayer">
     <property name="enabled">
@@ -630,6 +631,14 @@
   <action name="action_Post_Processing_Shaders">
    <property name="text">
     <string>Post-Processing &amp;Shaders...</string>
+   </property>
+  </action>
+  <action name="action_Show_Game_Info">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Show Game &amp;Info</string>
    </property>
   </action>
   <action name="action_Grid_Style_Cards">

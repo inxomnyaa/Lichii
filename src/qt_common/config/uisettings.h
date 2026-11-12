@@ -218,6 +218,7 @@ struct Values {
     Setting<Settings::GameListMode> game_list_mode{linkage, Settings::GameListMode::TreeView, "game_list_mode", Category::UiGameList};
     Setting<Settings::GridStyle> grid_style{linkage, Settings::GridStyle::Cards, "grid_style", Category::UiGameList};
     Setting<bool> show_game_name{linkage, true, "show_game_name", Category::UiGameList};
+    Setting<bool> show_game_info{linkage, false, "show_game_info", Category::UiGameList};
 
     std::atomic_bool is_game_list_reload_pending{false};
     Setting<bool> cache_game_list{linkage, true, "cache_game_list", Category::UiGameList};

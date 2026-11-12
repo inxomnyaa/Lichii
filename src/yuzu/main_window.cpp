@@ -1654,6 +1654,8 @@ void MainWindow::ConnectMenuEvents() {
 
     ui->action_Show_Game_Name->setChecked(UISettings::values.show_game_name.GetValue());
     connect(ui->action_Show_Game_Name, &QAction::triggered, this, &MainWindow::ToggleShowGameName);
+    ui->action_Show_Game_Info->setChecked(UISettings::values.show_game_info.GetValue());
+    connect(ui->action_Show_Game_Info, &QAction::triggered, this, &MainWindow::ToggleShowGameInfo);
 
     // Multiplayer
     connect(ui->action_View_Lobby, &QAction::triggered, multiplayer_state,
@@ -3772,6 +3774,7 @@ void MainWindow::SetGameListMode(Settings::GameListMode mode) {
 
     UISettings::values.game_list_mode = mode;
     ui->action_Show_Game_Name->setEnabled(mode != Settings::GameListMode::TreeView);
+    ui->action_Show_Game_Info->setEnabled(mode != Settings::GameListMode::TreeView);
     ui->action_Grid_Style_Cards->setEnabled(mode == Settings::GameListMode::GridView);
     ui->action_Grid_Style_Tiles->setEnabled(mode == Settings::GameListMode::GridView);
     ui->action_Grid_Style_Cards->setChecked(UISettings::values.grid_style.GetValue() ==
@@ -3829,6 +3832,14 @@ void MainWindow::CheckIconSize() {
 
     // Update this if you add anything before None.
     actions.at(0)->setEnabled(!icons_required);
+}
+
+void MainWindow::ToggleShowGameInfo() {
+    auto& setting = UISettings::values.show_game_info;
+    setting.SetValue(!setting.GetValue());
+    ui->action_Show_Game_Info->setChecked(setting.GetValue());
+
+    game_list->UpdateIconSizes();
 }
 
 void MainWindow::ToggleShowGameName() {

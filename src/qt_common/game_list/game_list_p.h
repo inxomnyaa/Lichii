@@ -137,6 +137,7 @@ public:
     static constexpr int ProgramIdRole = SortRole + 3;
     static constexpr int FileTypeRole = SortRole + 4;
     static constexpr int SquareIconRole = SortRole + 5; ///< icon without theme rounding (Tiles style)
+    static constexpr int AppliedUpdateRole = SortRole + 6; ///< version of the update the game runs with
 
     GameListItemPath() = default;
     GameListItemPath(const QString& game_path, const std::vector<u8>& picture_data,
