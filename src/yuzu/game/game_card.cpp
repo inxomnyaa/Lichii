@@ -6,6 +6,7 @@
 #include <QImage>
 #include <QPainter>
 #include <QPainterPath>
+#include <QPolygonF>
 #include <QStringList>
 #include "game_card.h"
 #include "qt_common/config/uisettings.h"
@@ -96,6 +97,85 @@ int DrawName(QPainter* painter, const QRect& rect, const QString& text, int max_
                       align | Qt::AlignTop | Qt::TextWordWrap, shown);
     return height;
 }
+
+// The square art of a game, or nothing when it has none.
+QPixmap SquareArt(const QModelIndex& index) {
+    return index.data(GameListItemPath::SquareIconRole).value<QPixmap>();
+}
+
+// Dark tile with the controller glyph, for games without art.
+void DrawPlaceholder(QPainter* painter, const QRectF& rect) {
+    painter->fillRect(rect, QColor(0x23, 0x24, 0x2a));
+    static const QImage glyph(QStringLiteral(":/lichii/icons/menu_gamepad@2x.png"));
+    if (!glyph.isNull()) {
+        const qreal g = std::min(rect.width(), rect.height()) * 3 / 8;
+        painter->drawImage(QRectF{rect.center().x() - g / 2, rect.center().y() - g / 2, g, g}, glyph);
+    }
+}
+
+// Library icon style "Cartridge": the game drawn as a game card, as tall as `area` and centred in it.
+// Switch 2 games (program IDs starting with 04) get the red card. Returns the card's outline.
+QRectF DrawCartridge(QPainter* painter, const QRectF& area, const QModelIndex& index) {
+    const qreal h = area.height(), w = h * 0.73;
+    const QRectF body{area.center().x() - w / 2, area.top(), w, h};
+    const bool switch2 =
+        (index.data(GameListItemPath::ProgramIdRole).toULongLong() >> 56) == 0x04;
+    const QColor body_color = switch2 ? QColor(0xec, 0x2a, 0x35) : QColor(0x3a, 0x3a, 0x3f);
+    const QColor rim_color = switch2 ? QColor(0xc3, 0x14, 0x1f) : QColor(0x26, 0x26, 0x2a);
+
+    painter->save();
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(body_color);
+    painter->drawRoundedRect(body, w * 0.08, w * 0.08);
+
+    // slot on the top rim and arrow under the label
+    painter->setBrush(rim_color);
+    painter->drawRoundedRect(QRectF{body.left() + w * 0.34, body.top() + h * 0.03, w * 0.32, h * 0.035},
+                             2, 2);
+    const qreal ax = body.center().x(), ay = body.bottom() - h * 0.045;
+    painter->drawPolygon(QPolygonF{{ax - w * 0.06, ay - h * 0.025}, {ax + w * 0.06, ay - h * 0.025},
+                                   {ax, ay + h * 0.01}});
+
+    // label: red header, square art, dark strip with the title ID
+    const qreal lw = w * 0.88;
+    const QRectF label{body.left() + (w - lw) / 2, body.top() + h * 0.075, lw, h * 0.83};
+    QPainterPath label_clip;
+    label_clip.addRoundedRect(label, lw * 0.04, lw * 0.04);
+    painter->setClipPath(label_clip);
+
+    const QRectF header{label.left(), label.top(), lw, lw * 0.17};
+    painter->fillRect(header, QColor(0xe6, 0x00, 0x12));
+    QFont font = painter->font();
+    font.setBold(true);
+    font.setPixelSize(std::max(6, static_cast<int>(header.height() * 0.5)));
+    painter->setFont(font);
+    painter->setPen(Qt::white);
+    painter->drawText(header, Qt::AlignCenter, switch2 ? QStringLiteral("SWITCH 2") : QStringLiteral("SWITCH"));
+
+    const QRectF art{label.left(), header.bottom(), lw, lw};
+    const QPixmap pixmap = SquareArt(index);
+    if (pixmap.isNull()) {
+        DrawPlaceholder(painter, art);
+    } else {
+        painter->drawPixmap(art, pixmap, QRectF(pixmap.rect()));
+    }
+
+    const QRectF strip{label.left(), art.bottom(), lw, label.bottom() - art.bottom()};
+    painter->fillRect(strip, QColor(0x16, 0x16, 0x18));
+    if (strip.height() >= 6) {
+        QFont mono(QStringLiteral("monospace"));
+        mono.setStyleHint(QFont::Monospace);
+        mono.setPixelSize(std::max(5, static_cast<int>(strip.height() * 0.5)));
+        painter->setFont(mono);
+        painter->setPen(QColor(0xed, 0xed, 0xee));
+        painter->drawText(strip, Qt::AlignCenter,
+                          QStringLiteral("%1").arg(
+                              index.data(GameListItemPath::ProgramIdRole).toULongLong(), 16, 16,
+                              QLatin1Char('0')).toUpper());
+    }
+    painter->restore();
+    return body;
+}
 } // namespace
 
 GameCard::GameCard(QObject* parent) : QStyledItemDelegate{parent} {
@@ -141,7 +221,15 @@ void GameCard::paint(QPainter* painter, const QStyleOptionViewItem& option,
     QPixmap icon_pixmap = index.data(Qt::DecorationRole).value<QPixmap>();
 
     QRect iconRect;
-    if (!icon_pixmap.isNull()) {
+    if (UISettings::values.game_icon_style.GetValue() == Settings::GameIconStyle::Cartridge &&
+        icon_size > 0) {
+        // Icon style "Cartridge": the card fills the icon's height, centred in its square.
+        iconRect = {cardRect.left() + (cardRect.width() - static_cast<int>(icon_size)) / 2,
+                    cardRect.top() + cardMargin - 1, static_cast<int>(icon_size),
+                    static_cast<int>(icon_size)};
+        painter->setRenderHint(QPainter::SmoothPixmapTransform, true);
+        DrawCartridge(painter, iconRect, index);
+    } else if (!icon_pixmap.isNull()) {
         QSize scaled = icon_pixmap.size();
         scaled.scale(icon_size, icon_size, Qt::KeepAspectRatio);
 
@@ -211,23 +299,29 @@ void GameCard::paintTile(QPainter* painter, const QStyleOptionViewItem& option,
     const bool selected = option.state & QStyle::State_Selected;
     const bool hovered = option.state & QStyle::State_MouseOver;
 
+    // The tile's shape: the square icon, or the card with the Cartridge icon style.
+    const bool cartridge =
+        UISettings::values.game_icon_style.GetValue() == Settings::GameIconStyle::Cartridge;
+    QRectF shape = tile;
+    qreal shape_radius = radius;
+    if (cartridge) {
+        shape = DrawCartridge(painter, tile, index);
+        shape_radius = shape.width() * 0.08;
+    }
+
     QPainterPath clip;
-    clip.addRoundedRect(tile, radius, radius);
+    clip.addRoundedRect(shape, shape_radius, shape_radius);
     painter->setClipPath(clip);
 
-    // The square original, so the tile keeps its own 4px corners whatever the theme rounds icons to.
-    const QPixmap icon = index.data(GameListItemPath::SquareIconRole).value<QPixmap>();
-    if (icon.isNull()) {
-        // No art: a plain dark tile with the controller glyph, rounded by this tile's own clip.
-        painter->fillRect(tile, QColor(0x23, 0x24, 0x2a));
-        static const QImage glyph(QStringLiteral(":/lichii/icons/menu_gamepad@2x.png"));
-        if (!glyph.isNull()) {
-            const int g = side * 3 / 8;
-            painter->drawImage(QRect{tile.left() + (side - g) / 2, tile.top() + (side - g) / 2, g, g},
-                               glyph);
+    if (!cartridge) {
+        // The square original, so the tile keeps its own 4px corners whatever the theme rounds
+        // icons to; games without art get a placeholder clipped the same way.
+        const QPixmap icon = SquareArt(index);
+        if (icon.isNull()) {
+            DrawPlaceholder(painter, tile);
+        } else {
+            painter->drawPixmap(tile, icon);
         }
-    } else {
-        painter->drawPixmap(tile, icon);
     }
 
     const bool show_name = UISettings::values.show_game_name.GetValue() || selected || hovered;
@@ -237,7 +331,7 @@ void GameCard::paintTile(QPainter* painter, const QStyleOptionViewItem& option,
     font.setPixelSize(std::clamp(side / 11, 10, 15));
     font.setBold(true);
     const QFontMetrics fm(font);
-    const int text_width = side - 12;
+    const int text_width = static_cast<int>(shape.width()) - 12;
     const QString title = index.data(Qt::DisplayRole).toString().split(QLatin1Char('\n')).first();
     const int max_lines =
         UISettings::values.game_name_overflow.GetValue() == Settings::GameNameOverflow::Wrap ? 3 : 1;
@@ -246,7 +340,8 @@ void GameCard::paintTile(QPainter* painter, const QStyleOptionViewItem& option,
     const int info_height = show_info ? fm.height() : 0;
     if (name_height + info_height > 0) {
         const int strip_height = name_height + info_height + 8;
-        const QRect strip{tile.left(), tile.bottom() + 1 - strip_height, tile.width(), strip_height};
+        const QRect strip{static_cast<int>(shape.left()), static_cast<int>(shape.bottom()) + 1 - strip_height,
+                          static_cast<int>(shape.width()), strip_height};
         painter->fillRect(strip, QColor(10, 10, 14, 205));
 
         int y = strip.top() + 4;
@@ -279,8 +374,8 @@ void GameCard::paintTile(QPainter* painter, const QStyleOptionViewItem& option,
         painter->setPen(QPen(accent, 3));
         // The 3px stroke is centred 1.5px inside the tile, so its path radius is 1.5px smaller:
         // that puts the stroke's outer edge exactly on the icon's rounded corner.
-        painter->drawRoundedRect(QRectF(tile).adjusted(1.5, 1.5, -1.5, -1.5), radius - 1.5,
-                                 radius - 1.5);
+        painter->drawRoundedRect(shape.adjusted(1.5, 1.5, -1.5, -1.5), shape_radius - 1.5,
+                                 shape_radius - 1.5);
     }
 
     painter->restore();

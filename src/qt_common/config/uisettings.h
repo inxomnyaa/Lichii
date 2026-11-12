@@ -217,6 +217,7 @@ struct Values {
     Setting<u8> row_2_text_id{linkage, 2, "row_2_text_id", Category::UiGameList};
     Setting<Settings::GameListMode> game_list_mode{linkage, Settings::GameListMode::TreeView, "game_list_mode", Category::UiGameList};
     Setting<Settings::GridStyle> grid_style{linkage, Settings::GridStyle::Cards, "grid_style", Category::UiGameList};
+    Setting<Settings::GameIconStyle> game_icon_style{linkage, Settings::GameIconStyle::Plain, "game_icon_style", Category::UiGameList};
     Setting<bool> show_game_name{linkage, true, "show_game_name", Category::UiGameList};
     Setting<bool> show_game_info{linkage, false, "show_game_info", Category::UiGameList};
     Setting<Settings::GameNameOverflow> game_name_overflow{linkage, Settings::GameNameOverflow::Ellipsis, "game_name_overflow", Category::UiGameList};

@@ -124,6 +124,13 @@
      <addaction name="action_Names_Wrap"/>
      <addaction name="action_Names_Scroll"/>
     </widget>
+    <widget class="QMenu" name="menu_Icon_Style">
+     <property name="title">
+      <string>Icon St&amp;yle</string>
+     </property>
+     <addaction name="action_Icon_Plain"/>
+     <addaction name="action_Icon_Cartridge"/>
+    </widget>
     <widget class="QMenu" name="menuGame_Icon_Size">
      <property name="title">
       <string>Game &amp;Icon Size</string>
@@ -168,6 +175,7 @@
     <addaction name="action_Show_Game_Name"/>
     <addaction name="action_Show_Game_Info"/>
     <addaction name="menu_Long_Names"/>
+    <addaction name="menu_Icon_Style"/>
    </widget>
    <widget class="QMenu" name="menu_Multiplayer">
     <property name="enabled">
@@ -672,6 +680,22 @@
    </property>
    <property name="text">
     <string>&amp;Scroll Selected</string>
+   </property>
+  </action>
+  <action name="action_Icon_Plain">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>&amp;Plain</string>
+   </property>
+  </action>
+  <action name="action_Icon_Cartridge">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>&amp;Cartridge</string>
    </property>
   </action>
   <action name="action_Grid_Style_Cards">

@@ -1663,6 +1663,11 @@ void MainWindow::ConnectMenuEvents() {
     connect(ui->action_Names_Scroll, &QAction::triggered, this,
             [this] { SetGameNameOverflow(Settings::GameNameOverflow::Scroll); });
     SetGameNameOverflow(UISettings::values.game_name_overflow.GetValue());
+    connect(ui->action_Icon_Plain, &QAction::triggered, this,
+            [this] { SetGameIconStyle(Settings::GameIconStyle::Plain); });
+    connect(ui->action_Icon_Cartridge, &QAction::triggered, this,
+            [this] { SetGameIconStyle(Settings::GameIconStyle::Cartridge); });
+    SetGameIconStyle(UISettings::values.game_icon_style.GetValue());
 
     // Multiplayer
     connect(ui->action_View_Lobby, &QAction::triggered, multiplayer_state,
@@ -3783,6 +3788,7 @@ void MainWindow::SetGameListMode(Settings::GameListMode mode) {
     ui->action_Show_Game_Name->setEnabled(mode != Settings::GameListMode::TreeView);
     ui->action_Show_Game_Info->setEnabled(mode != Settings::GameListMode::TreeView);
     ui->menu_Long_Names->setEnabled(mode != Settings::GameListMode::TreeView);
+    ui->menu_Icon_Style->setEnabled(mode != Settings::GameListMode::TreeView);
     ui->action_Grid_Style_Cards->setEnabled(mode == Settings::GameListMode::GridView);
     ui->action_Grid_Style_Tiles->setEnabled(mode == Settings::GameListMode::GridView);
     ui->action_Grid_Style_Cards->setChecked(UISettings::values.grid_style.GetValue() ==
@@ -3855,6 +3861,16 @@ void MainWindow::SetGameNameOverflow(Settings::GameNameOverflow overflow) {
     ui->action_Names_Ellipsis->setChecked(overflow == Settings::GameNameOverflow::Ellipsis);
     ui->action_Names_Wrap->setChecked(overflow == Settings::GameNameOverflow::Wrap);
     ui->action_Names_Scroll->setChecked(overflow == Settings::GameNameOverflow::Scroll);
+
+    if (game_list) {
+        game_list->UpdateIconSizes();
+    }
+}
+
+void MainWindow::SetGameIconStyle(Settings::GameIconStyle style) {
+    UISettings::values.game_icon_style = style;
+    ui->action_Icon_Plain->setChecked(style == Settings::GameIconStyle::Plain);
+    ui->action_Icon_Cartridge->setChecked(style == Settings::GameIconStyle::Cartridge);
 
     if (game_list) {
         game_list->UpdateIconSizes();

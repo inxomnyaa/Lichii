@@ -170,6 +170,7 @@ ENUM(GpuLogLevel, Off, Errors, Standard, Verbose, All)
 ENUM(GameListMode, TreeView, GridView, CarouselView);
 ENUM(GridStyle, Cards, Tiles);
 ENUM(GameNameOverflow, Ellipsis, Wrap, Scroll);
+ENUM(GameIconStyle, Plain, Cartridge);
 ENUM(SpeedMode, Standard, Turbo, Slow);
 ENUM(FrameGenType, Lsfg, Fsr3);
 
