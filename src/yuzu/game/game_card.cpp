@@ -1,10 +1,13 @@
 // SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include <algorithm>
+#include <QImage>
 #include <QPainter>
 #include <QPainterPath>
 #include "game_card.h"
 #include "qt_common/config/uisettings.h"
+#include "qt_common/game_list/game_list_p.h"
 
 GameCard::GameCard(QObject* parent) : QStyledItemDelegate{parent} {
     setObjectName("GameCard");
@@ -12,6 +15,11 @@ GameCard::GameCard(QObject* parent) : QStyledItemDelegate{parent} {
 
 void GameCard::paint(QPainter* painter, const QStyleOptionViewItem& option,
                      const QModelIndex& index) const {
+    if (m_columns >= 1 && UISettings::values.grid_style.GetValue() == Settings::GridStyle::Tiles) {
+        paintTile(painter, option, index);
+        return;
+    }
+
     if (!index.isValid())
         return;
 
@@ -80,6 +88,81 @@ void GameCard::paint(QPainter* painter, const QStyleOptionViewItem& option,
         const QFontMetrics fm(font);
         title = fm.elidedText(title, Qt::ElideRight, textRect.width() * 2);
         painter->drawText(textRect, Qt::AlignHCenter | Qt::AlignTop | Qt::TextWordWrap, title);
+    }
+
+    painter->restore();
+}
+
+// Tiles grid style: the icon fills the cell edge to edge. The name sits in a dark strip at the
+// bottom of the icon: on every tile when "Show Game Name" is on, and always on the selected or
+// hovered tile.
+void GameCard::paintTile(QPainter* painter, const QStyleOptionViewItem& option,
+                         const QModelIndex& index) const {
+    painter->save();
+    painter->setRenderHint(QPainter::Antialiasing);
+    painter->setRenderHint(QPainter::SmoothPixmapTransform);
+
+    const QRect cell = getCardRect(option, index);
+    const int side = std::min(cell.width(), cell.height());
+    const QRect tile{cell.left() + (cell.width() - side) / 2, cell.top(), side, side};
+    constexpr qreal radius = 4;
+
+    const bool selected = option.state & QStyle::State_Selected;
+    const bool hovered = option.state & QStyle::State_MouseOver;
+
+    QPainterPath clip;
+    clip.addRoundedRect(tile, radius, radius);
+    painter->setClipPath(clip);
+
+    // The square original, so the tile keeps its own 4px corners whatever the theme rounds icons to.
+    const QPixmap icon = index.data(GameListItemPath::SquareIconRole).value<QPixmap>();
+    if (icon.isNull()) {
+        // No art: a plain dark tile with the controller glyph, rounded by this tile's own clip.
+        painter->fillRect(tile, QColor(0x23, 0x24, 0x2a));
+        static const QImage glyph(QStringLiteral(":/lichii/icons/menu_gamepad@2x.png"));
+        if (!glyph.isNull()) {
+            const int g = side * 3 / 8;
+            painter->drawImage(QRect{tile.left() + (side - g) / 2, tile.top() + (side - g) / 2, g, g},
+                               glyph);
+        }
+    } else {
+        painter->drawPixmap(tile, icon);
+    }
+
+    if (UISettings::values.show_game_name.GetValue() || selected || hovered) {
+        QFont font = option.font;
+        font.setPixelSize(std::clamp(side / 11, 10, 15));
+        font.setBold(true);
+        const QFontMetrics fm(font);
+        const int text_width = side - 12;
+        const QString title =
+            index.data(Qt::DisplayRole).toString().split(QLatin1Char('\n')).first();
+
+        const int strip_height = fm.height() + 8;
+        const QRect strip{tile.left(), tile.bottom() + 1 - strip_height, tile.width(), strip_height};
+        painter->fillRect(strip, QColor(10, 10, 14, 205));
+        painter->setFont(font);
+        painter->setPen(Qt::white);
+        painter->drawText(QRect{strip.left() + 6, strip.top() + 4, text_width, fm.height()},
+                          Qt::AlignLeft | Qt::AlignVCenter,
+                          fm.elidedText(title, Qt::ElideRight, text_width));
+    }
+
+    painter->setClipping(false);
+    if (selected) {
+        // A solid border in the theme's accent: Lichii's pink (as on the status bar's renderer
+        // label), otherwise the theme's highlight colour at full strength.
+        QColor accent = option.palette.highlight().color();
+        accent.setAlpha(255);
+        if (IsLichiiTheme()) {
+            accent = QColor(0xf0, 0x38, 0x6b);
+        }
+        painter->setBrush(Qt::NoBrush);
+        painter->setPen(QPen(accent, 3));
+        // The 3px stroke is centred 1.5px inside the tile, so its path radius is 1.5px smaller:
+        // that puts the stroke's outer edge exactly on the icon's rounded corner.
+        painter->drawRoundedRect(QRectF(tile).adjusted(1.5, 1.5, -1.5, -1.5), radius - 1.5,
+                                 radius - 1.5);
     }
 
     painter->restore();

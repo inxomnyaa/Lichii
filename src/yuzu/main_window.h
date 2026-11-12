@@ -442,6 +442,7 @@ private slots:
     void SetGridView();
     void SetTreeView();
     void SetCarouselView();
+    void SetGridStyle(Settings::GridStyle style);
 
     void CheckIconSize();
     void ToggleShowGameName();
