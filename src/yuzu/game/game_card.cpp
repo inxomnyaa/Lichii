@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <algorithm>
+#include <QDateTime>
 #include <QImage>
 #include <QPainter>
 #include <QPainterPath>
@@ -30,6 +31,70 @@ QString GameInfoText(const QModelIndex& index) {
         parts << QStringLiteral("v") + version;
     }
     return parts.join(QStringLiteral(" · "));
+}
+
+// Height of a name drawn with DrawName(), so callers can size the box around it first.
+int NameHeight(const QFontMetrics& fm, const QString& text, int width, int max_lines) {
+    if (UISettings::values.game_name_overflow.GetValue() == Settings::GameNameOverflow::Scroll ||
+        max_lines <= 1) {
+        return fm.height();
+    }
+    QString shown = text;
+    if (UISettings::values.game_name_overflow.GetValue() == Settings::GameNameOverflow::Ellipsis) {
+        shown = fm.elidedText(text, Qt::ElideRight, width * max_lines);
+    }
+    const int h = fm.boundingRect(QRect(0, 0, width, 10000), Qt::TextWordWrap, shown).height();
+    return std::min(h, fm.lineSpacing() * (max_lines + 1));
+}
+
+// Draws a game name the way View > Long Names asks: cut off with "…", wrapped, or (selected
+// tile only) scrolled back and forth. Returns the height used.
+int DrawName(QPainter* painter, const QRect& rect, const QString& text, int max_lines,
+             Qt::Alignment align, bool selected) {
+    const QFontMetrics fm(painter->font());
+    const auto overflow = UISettings::values.game_name_overflow.GetValue();
+
+    if (overflow == Settings::GameNameOverflow::Scroll) {
+        const QRect line{rect.left(), rect.top(), rect.width(), fm.height()};
+        const int extra = fm.horizontalAdvance(text) - rect.width();
+        if (extra <= 0 || !selected) {
+            painter->drawText(line, align | Qt::AlignTop,
+                              fm.elidedText(text, Qt::ElideRight, rect.width()));
+        } else {
+            // Wait, glide to the end at 40 px/s, wait, glide back.
+            constexpr qint64 pause = 1200, ms_per_px = 25;
+            const qint64 travel = extra * ms_per_px;
+            const qint64 t = QDateTime::currentMSecsSinceEpoch() % (2 * (pause + travel));
+            qint64 x = 0;
+            if (t >= pause && t < pause + travel) {
+                x = (t - pause) / ms_per_px;
+            } else if (t >= pause + travel && t < 2 * pause + travel) {
+                x = extra;
+            } else if (t >= 2 * pause + travel) {
+                x = extra - (t - 2 * pause - travel) / ms_per_px;
+            }
+            painter->save();
+            painter->setClipRect(line);
+            painter->drawText(QRect{line.left() - static_cast<int>(x), line.top(),
+                                    fm.horizontalAdvance(text), line.height()},
+                              Qt::AlignLeft | Qt::AlignTop, text);
+            painter->restore();
+        }
+        return fm.height();
+    }
+
+    const int height = NameHeight(fm, text, rect.width(), max_lines);
+    if (max_lines <= 1 && overflow == Settings::GameNameOverflow::Ellipsis) {
+        painter->drawText(QRect{rect.left(), rect.top(), rect.width(), height}, align | Qt::AlignTop,
+                          fm.elidedText(text, Qt::ElideRight, rect.width()));
+        return height;
+    }
+    const QString shown = overflow == Settings::GameNameOverflow::Ellipsis
+                              ? fm.elidedText(text, Qt::ElideRight, rect.width() * max_lines)
+                              : text;
+    painter->drawText(QRect{rect.left(), rect.top(), rect.width(), height},
+                      align | Qt::AlignTop | Qt::TextWordWrap, shown);
+    return height;
 }
 } // namespace
 
@@ -96,25 +161,22 @@ void GameCard::paint(QPainter* painter, const QStyleOptionViewItem& option,
                     static_cast<int>(icon_size), static_cast<int>(icon_size)};
     }
 
+    const bool selected = option.state & QStyle::State_Selected;
     int text_top = iconRect.bottom() + cardMargin;
     QFont font = option.font;
     font.setPixelSize(std::max(11.0, std::sqrt(static_cast<double>(icon_size))));
 
     if (UISettings::values.show_game_name.GetValue()) {
-        // Keep the title within the icon's width: at most two lines, cut with "..." beyond that.
-        const QRect textRect(iconRect.left(), text_top, iconRect.width(),
-                             cardRect.bottom() - text_top);
-
-        QString title = index.data(Qt::DisplayRole).toString().split(QLatin1Char('\n')).first();
-
+        // The title stays within the icon's width (see View > Long Names for long ones).
+        const QString title =
+            index.data(Qt::DisplayRole).toString().split(QLatin1Char('\n')).first();
         painter->setPen(textColor);
         font.setBold(true);
         painter->setFont(font);
-
-        const QFontMetrics fm(font);
-        title = fm.elidedText(title, Qt::ElideRight, textRect.width() * 2);
-        painter->drawText(textRect, Qt::AlignHCenter | Qt::AlignTop | Qt::TextWordWrap, title);
-        text_top += fm.boundingRect(textRect, Qt::AlignHCenter | Qt::TextWordWrap, title).height();
+        const int max_lines =
+            UISettings::values.game_name_overflow.GetValue() == Settings::GameNameOverflow::Wrap ? 4 : 2;
+        text_top += DrawName(painter, QRect{iconRect.left(), text_top, iconRect.width(), 0}, title,
+                             max_lines, Qt::AlignHCenter, selected);
     }
 
     if (UISettings::values.show_game_info.GetValue()) {
@@ -177,8 +239,10 @@ void GameCard::paintTile(QPainter* painter, const QStyleOptionViewItem& option,
     const QFontMetrics fm(font);
     const int text_width = side - 12;
     const QString title = index.data(Qt::DisplayRole).toString().split(QLatin1Char('\n')).first();
+    const int max_lines =
+        UISettings::values.game_name_overflow.GetValue() == Settings::GameNameOverflow::Wrap ? 3 : 1;
 
-    const int name_height = show_name ? fm.height() : 0;
+    const int name_height = show_name ? NameHeight(fm, title, text_width, max_lines) : 0;
     const int info_height = show_info ? fm.height() : 0;
     if (name_height + info_height > 0) {
         const int strip_height = name_height + info_height + 8;
@@ -189,10 +253,8 @@ void GameCard::paintTile(QPainter* painter, const QStyleOptionViewItem& option,
         if (show_name) {
             painter->setFont(font);
             painter->setPen(Qt::white);
-            painter->drawText(QRect{strip.left() + 6, y, text_width, fm.height()},
-                              Qt::AlignLeft | Qt::AlignVCenter,
-                              fm.elidedText(title, Qt::ElideRight, text_width));
-            y += fm.height();
+            y += DrawName(painter, QRect{strip.left() + 6, y, text_width, 0}, title, max_lines,
+                          Qt::AlignLeft, selected);
         }
         if (show_info) {
             font.setBold(false);

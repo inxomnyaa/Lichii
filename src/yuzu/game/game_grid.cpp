@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <QScroller>
+#include <QTimer>
 #include <QScrollerProperties>
 
 #include "qt_common/config/uisettings.h"
@@ -31,6 +32,17 @@ GameGrid::GameGrid(QWidget* parent) : QListView{parent} {
     setTextElideMode(Qt::ElideRight);
     setFlow(QListView::LeftToRight);
     setWrapping(true);
+
+    // View > Long Names > Scroll Selected: repaint only the selected item while its name moves.
+    auto* scroll_timer = new QTimer(this);
+    scroll_timer->setInterval(33);
+    connect(scroll_timer, &QTimer::timeout, this, [this] {
+        if (UISettings::values.game_name_overflow.GetValue() == Settings::GameNameOverflow::Scroll &&
+            currentIndex().isValid()) {
+            viewport()->update(visualRect(currentIndex()));
+        }
+    });
+    scroll_timer->start();
 }
 
 void GameGrid::SetModel(GameListModel* model) {
@@ -90,10 +102,15 @@ void GameGrid::UpdateIconSize() {
         heightMargin = 24;
     }
 
-    // Cards: one more line for View > Show Game Info.
-    if (UISettings::values.grid_style.GetValue() == Settings::GridStyle::Cards &&
-        UISettings::values.show_game_info.GetValue()) {
-        heightMargin += 20;
+    // Cards: one more line for View > Show Game Info, two more for wrapped long names.
+    if (UISettings::values.grid_style.GetValue() == Settings::GridStyle::Cards) {
+        if (UISettings::values.show_game_info.GetValue()) {
+            heightMargin += 20;
+        }
+        if (UISettings::values.show_game_name.GetValue() &&
+            UISettings::values.game_name_overflow.GetValue() == Settings::GameNameOverflow::Wrap) {
+            heightMargin += 36;
+        }
     }
 
     const int view_width = viewport()->width();

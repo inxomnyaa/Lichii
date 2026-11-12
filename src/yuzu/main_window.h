@@ -447,6 +447,7 @@ private slots:
     void CheckIconSize();
     void ToggleShowGameName();
     void ToggleShowGameInfo();
+    void SetGameNameOverflow(Settings::GameNameOverflow overflow);
 
     void LaunchFirmwareApplet(u64 program_id, std::optional<Service::NFP::CabinetMode> mode);
     void OnCreateHomeMenuDesktopShortcut();

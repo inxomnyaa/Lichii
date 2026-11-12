@@ -116,6 +116,14 @@
      <addaction name="action_Grid_Style_Cards"/>
      <addaction name="action_Grid_Style_Tiles"/>
     </widget>
+    <widget class="QMenu" name="menu_Long_Names">
+     <property name="title">
+      <string>&amp;Long Names</string>
+     </property>
+     <addaction name="action_Names_Ellipsis"/>
+     <addaction name="action_Names_Wrap"/>
+     <addaction name="action_Names_Scroll"/>
+    </widget>
     <widget class="QMenu" name="menuGame_Icon_Size">
      <property name="title">
       <string>Game &amp;Icon Size</string>
@@ -159,6 +167,7 @@
     <addaction name="menuGame_Icon_Size"/>
     <addaction name="action_Show_Game_Name"/>
     <addaction name="action_Show_Game_Info"/>
+    <addaction name="menu_Long_Names"/>
    </widget>
    <widget class="QMenu" name="menu_Multiplayer">
     <property name="enabled">
@@ -639,6 +648,30 @@
    </property>
    <property name="text">
     <string>Show Game &amp;Info</string>
+   </property>
+  </action>
+  <action name="action_Names_Ellipsis">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>&amp;Cut Off (…)</string>
+   </property>
+  </action>
+  <action name="action_Names_Wrap">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>&amp;Wrap</string>
+   </property>
+  </action>
+  <action name="action_Names_Scroll">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>&amp;Scroll Selected</string>
    </property>
   </action>
   <action name="action_Grid_Style_Cards">

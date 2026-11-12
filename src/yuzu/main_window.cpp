@@ -1656,6 +1656,13 @@ void MainWindow::ConnectMenuEvents() {
     connect(ui->action_Show_Game_Name, &QAction::triggered, this, &MainWindow::ToggleShowGameName);
     ui->action_Show_Game_Info->setChecked(UISettings::values.show_game_info.GetValue());
     connect(ui->action_Show_Game_Info, &QAction::triggered, this, &MainWindow::ToggleShowGameInfo);
+    connect(ui->action_Names_Ellipsis, &QAction::triggered, this,
+            [this] { SetGameNameOverflow(Settings::GameNameOverflow::Ellipsis); });
+    connect(ui->action_Names_Wrap, &QAction::triggered, this,
+            [this] { SetGameNameOverflow(Settings::GameNameOverflow::Wrap); });
+    connect(ui->action_Names_Scroll, &QAction::triggered, this,
+            [this] { SetGameNameOverflow(Settings::GameNameOverflow::Scroll); });
+    SetGameNameOverflow(UISettings::values.game_name_overflow.GetValue());
 
     // Multiplayer
     connect(ui->action_View_Lobby, &QAction::triggered, multiplayer_state,
@@ -3775,6 +3782,7 @@ void MainWindow::SetGameListMode(Settings::GameListMode mode) {
     UISettings::values.game_list_mode = mode;
     ui->action_Show_Game_Name->setEnabled(mode != Settings::GameListMode::TreeView);
     ui->action_Show_Game_Info->setEnabled(mode != Settings::GameListMode::TreeView);
+    ui->menu_Long_Names->setEnabled(mode != Settings::GameListMode::TreeView);
     ui->action_Grid_Style_Cards->setEnabled(mode == Settings::GameListMode::GridView);
     ui->action_Grid_Style_Tiles->setEnabled(mode == Settings::GameListMode::GridView);
     ui->action_Grid_Style_Cards->setChecked(UISettings::values.grid_style.GetValue() ==
@@ -3840,6 +3848,17 @@ void MainWindow::ToggleShowGameInfo() {
     ui->action_Show_Game_Info->setChecked(setting.GetValue());
 
     game_list->UpdateIconSizes();
+}
+
+void MainWindow::SetGameNameOverflow(Settings::GameNameOverflow overflow) {
+    UISettings::values.game_name_overflow = overflow;
+    ui->action_Names_Ellipsis->setChecked(overflow == Settings::GameNameOverflow::Ellipsis);
+    ui->action_Names_Wrap->setChecked(overflow == Settings::GameNameOverflow::Wrap);
+    ui->action_Names_Scroll->setChecked(overflow == Settings::GameNameOverflow::Scroll);
+
+    if (game_list) {
+        game_list->UpdateIconSizes();
+    }
 }
 
 void MainWindow::ToggleShowGameName() {
