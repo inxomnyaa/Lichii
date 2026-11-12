@@ -260,6 +260,23 @@ QString FormatPatchNameVersions(const FileSys::PatchManager& patch_manager,
     return out;
 }
 
+// The update the game actually runs with: an enabled external update wins, NAND/SD only count
+// when there is none (same order PatchManager::GetPatches lists them in).
+QString AppliedUpdateVersion(const FileSys::PatchManager& patch_manager, Loader::AppLoader& loader) {
+    if (!loader.IsRomFSUpdatable()) {
+        return {};
+    }
+    FileSys::VirtualFile update_raw;
+    loader.ReadUpdateRaw(update_raw);
+    for (const auto& patch : patch_manager.GetPatches(update_raw)) {
+        if (patch.type == FileSys::PatchType::Update && patch.enabled && !patch.version.empty() &&
+            patch.version != "PACKED") {
+            return QString::fromStdString(patch.version);
+        }
+    }
+    return {};
+}
+
 QList<QStandardItem*> MakeGameListEntry(const std::string& path, const std::string& name,
                                         const std::size_t size, const std::vector<u8>& icon,
                                         Loader::AppLoader& loader, u64 program_id,
@@ -273,6 +290,10 @@ QList<QStandardItem*> MakeGameListEntry(const std::string& path, const std::stri
             return FormatPatchNameVersions(patch, loader, loader.IsRomFSUpdatable());
         });
 
+    QString applied_update = GetGameListCachedObject(
+        fmt::format("{:016X}", patch.GetTitleID()), "uv.txt",
+        [&patch, &loader] { return AppliedUpdateVersion(patch, loader); });
+
     FileSys::NACP nacp{};
     // An NX tree snapshot, like a NUP, is already the updated game: no patch manager update.
     if ((file_type == Loader::FileType::NUP ||
@@ -285,13 +306,16 @@ QList<QStandardItem*> MakeGameListEntry(const std::string& path, const std::stri
             }
             patch_versions += QStringLiteral("Update (%1)").arg(
                 QString::fromStdString(version_string));
+            applied_update = QString::fromStdString(version_string);
         }
     }
 
     u64 play_time = play_time_manager.GetPlayTime(program_id);
+    auto* path_item = new GameListItemPath(FormatGameName(path), icon, QString::fromStdString(name),
+                                           file_type_string, program_id, play_time, patch_versions);
+    path_item->setData(applied_update, GameListItemPath::AppliedUpdateRole);
     return QList<QStandardItem*>{
-        new GameListItemPath(FormatGameName(path), icon, QString::fromStdString(name),
-                             file_type_string, program_id, play_time, patch_versions),
+        path_item,
         new GameListItem(file_type_string),
         new GameListItemSize(size),
         new GameListItemPlayTime(play_time),

@@ -63,7 +63,7 @@ void GameGrid::UpdateIconSize() {
     int widthMargin = 24;
 
     if (UISettings::values.grid_style.GetValue() == Settings::GridStyle::Tiles) {
-        // Tiles: the name is drawn on the icon, so the cell is the icon plus a gap.
+        // Tiles: the name and play time are drawn on the icon, so the cell is the icon plus a gap.
         widthMargin = 10;
         heightMargin = 10;
     } else if (UISettings::values.show_game_name) {
@@ -88,6 +88,12 @@ void GameGrid::UpdateIconSize() {
     } else {
         widthMargin = 24;
         heightMargin = 24;
+    }
+
+    // Cards: one more line for View > Show Game Info.
+    if (UISettings::values.grid_style.GetValue() == Settings::GridStyle::Cards &&
+        UISettings::values.show_game_info.GetValue()) {
+        heightMargin += 20;
     }
 
     const int view_width = viewport()->width();

@@ -5,9 +5,33 @@
 #include <QImage>
 #include <QPainter>
 #include <QPainterPath>
+#include <QStringList>
 #include "game_card.h"
 #include "qt_common/config/uisettings.h"
 #include "qt_common/game_list/game_list_p.h"
+#include "qt_common/game_list/model.h"
+
+namespace {
+// "1.9 h · v1.3.0": play time and the update the game actually runs with.
+QString GameInfoText(const QModelIndex& index) {
+    QStringList parts;
+    const qulonglong seconds = index.siblingAtColumn(GameListModel::COLUMN_PLAY_TIME)
+                                   .data(GameListItemPlayTime::PlayTimeRole)
+                                   .toULongLong();
+    if (seconds == 0) {
+        parts << QObject::tr("New");
+    } else if (seconds < 3600) {
+        parts << QObject::tr("%1 min").arg(std::max<qulonglong>(1, seconds / 60));
+    } else {
+        parts << QObject::tr("%1 h").arg(seconds / 3600.0, 0, 'f', 1);
+    }
+    const QString version = index.data(GameListItemPath::AppliedUpdateRole).toString();
+    if (!version.isEmpty()) {
+        parts << QStringLiteral("v") + version;
+    }
+    return parts.join(QStringLiteral(" · "));
+}
+} // namespace
 
 GameCard::GameCard(QObject* parent) : QStyledItemDelegate{parent} {
     setObjectName("GameCard");
@@ -72,30 +96,45 @@ void GameCard::paint(QPainter* painter, const QStyleOptionViewItem& option,
                     static_cast<int>(icon_size), static_cast<int>(icon_size)};
     }
 
+    int text_top = iconRect.bottom() + cardMargin;
+    QFont font = option.font;
+    font.setPixelSize(std::max(11.0, std::sqrt(static_cast<double>(icon_size))));
+
     if (UISettings::values.show_game_name.GetValue()) {
         // Keep the title within the icon's width: at most two lines, cut with "..." beyond that.
-        const QRect textRect(iconRect.left(), iconRect.bottom() + cardMargin, iconRect.width(),
-                             cardRect.bottom() - iconRect.bottom() - cardMargin);
+        const QRect textRect(iconRect.left(), text_top, iconRect.width(),
+                             cardRect.bottom() - text_top);
 
         QString title = index.data(Qt::DisplayRole).toString().split(QLatin1Char('\n')).first();
 
         painter->setPen(textColor);
-        QFont font = option.font;
         font.setBold(true);
-        font.setPixelSize(std::max(11.0, std::sqrt(static_cast<double>(icon_size))));
         painter->setFont(font);
 
         const QFontMetrics fm(font);
         title = fm.elidedText(title, Qt::ElideRight, textRect.width() * 2);
         painter->drawText(textRect, Qt::AlignHCenter | Qt::AlignTop | Qt::TextWordWrap, title);
+        text_top += fm.boundingRect(textRect, Qt::AlignHCenter | Qt::TextWordWrap, title).height();
+    }
+
+    if (UISettings::values.show_game_info.GetValue()) {
+        font.setBold(false);
+        painter->setFont(font);
+        const QFontMetrics fm(font);
+        QColor info_color = textColor;
+        info_color.setAlphaF(0.7f);
+        painter->setPen(info_color);
+        painter->drawText(QRect{iconRect.left(), text_top + 2, iconRect.width(), fm.height()},
+                          Qt::AlignHCenter | Qt::AlignTop,
+                          fm.elidedText(GameInfoText(index), Qt::ElideRight, iconRect.width()));
     }
 
     painter->restore();
 }
 
-// Tiles grid style: the icon fills the cell edge to edge. The name sits in a dark strip at the
-// bottom of the icon: on every tile when "Show Game Name" is on, and always on the selected or
-// hovered tile.
+// Tiles grid style: the icon fills the cell edge to edge. The name and play time sit in a dark
+// strip at the bottom of the icon: on every tile when "Show Game Name" / "Show Play Time" are on,
+// and always on the selected or hovered tile.
 void GameCard::paintTile(QPainter* painter, const QStyleOptionViewItem& option,
                          const QModelIndex& index) const {
     painter->save();
@@ -129,23 +168,40 @@ void GameCard::paintTile(QPainter* painter, const QStyleOptionViewItem& option,
         painter->drawPixmap(tile, icon);
     }
 
-    if (UISettings::values.show_game_name.GetValue() || selected || hovered) {
-        QFont font = option.font;
-        font.setPixelSize(std::clamp(side / 11, 10, 15));
-        font.setBold(true);
-        const QFontMetrics fm(font);
-        const int text_width = side - 12;
-        const QString title =
-            index.data(Qt::DisplayRole).toString().split(QLatin1Char('\n')).first();
+    const bool show_name = UISettings::values.show_game_name.GetValue() || selected || hovered;
+    const bool show_info = UISettings::values.show_game_info.GetValue() || selected || hovered;
 
-        const int strip_height = fm.height() + 8;
+    QFont font = option.font;
+    font.setPixelSize(std::clamp(side / 11, 10, 15));
+    font.setBold(true);
+    const QFontMetrics fm(font);
+    const int text_width = side - 12;
+    const QString title = index.data(Qt::DisplayRole).toString().split(QLatin1Char('\n')).first();
+
+    const int name_height = show_name ? fm.height() : 0;
+    const int info_height = show_info ? fm.height() : 0;
+    if (name_height + info_height > 0) {
+        const int strip_height = name_height + info_height + 8;
         const QRect strip{tile.left(), tile.bottom() + 1 - strip_height, tile.width(), strip_height};
         painter->fillRect(strip, QColor(10, 10, 14, 205));
-        painter->setFont(font);
-        painter->setPen(Qt::white);
-        painter->drawText(QRect{strip.left() + 6, strip.top() + 4, text_width, fm.height()},
-                          Qt::AlignLeft | Qt::AlignVCenter,
-                          fm.elidedText(title, Qt::ElideRight, text_width));
+
+        int y = strip.top() + 4;
+        if (show_name) {
+            painter->setFont(font);
+            painter->setPen(Qt::white);
+            painter->drawText(QRect{strip.left() + 6, y, text_width, fm.height()},
+                              Qt::AlignLeft | Qt::AlignVCenter,
+                              fm.elidedText(title, Qt::ElideRight, text_width));
+            y += fm.height();
+        }
+        if (show_info) {
+            font.setBold(false);
+            painter->setFont(font);
+            painter->setPen(QColor(200, 200, 208));
+            painter->drawText(QRect{strip.left() + 6, y, text_width, fm.height()},
+                              Qt::AlignLeft | Qt::AlignVCenter,
+                              fm.elidedText(GameInfoText(index), Qt::ElideRight, text_width));
+        }
     }
 
     painter->setClipping(false);
